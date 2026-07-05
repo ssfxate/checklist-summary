@@ -1,0 +1,23 @@
+{
+  "name": "checklist-summary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Render lightweight checkbox status summaries for sections and list groups in Obsidian.",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "preversion": "npm run check",
+    "version": "node version-bump.mjs",
+    "release": "node release.mjs",
+    "release:patch": "npm version patch && node release.mjs"
+  },
+  "devDependencies": {
+    "@codemirror/state": "6.5.0",
+    "@codemirror/view": "6.38.6",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.5.0",
+    "typescript": "^5.8.0"
+  }
+}

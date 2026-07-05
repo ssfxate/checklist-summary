@@ -1,0 +1,38 @@
+.checklist-summary {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  line-height: inherit;
+  pointer-events: none;
+  user-select: none;
+}
+
+.checklist-summary--inline {
+  margin-inline-start: 0.5em;
+}
+
+.checklist-summary--virtual {
+  display: block;
+  margin: 0.15em 0 0.35em;
+  text-indent: 0;
+}
+
+.checklist-summary__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  margin-inline-end: 0.6em;
+  white-space: nowrap;
+}
+
+.checklist-summary__status:last-child {
+  margin-inline-end: 0;
+}
+
+.checklist-summary__status input[type="checkbox"] {
+  margin: 0;
+  vertical-align: middle;
+}
+
+.checklist-summary__count {
+  color: inherit;
+}
