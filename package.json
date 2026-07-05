@@ -1,6 +1,6 @@
 {
   "name": "checklist-summary",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Render lightweight checkbox status summaries for sections and list groups in Obsidian.",
   "scripts": {
