@@ -474,69 +474,51 @@ function createLivePreviewExtension() {
       return true;
     }
   }
-  return import_view.ViewPlugin.fromClass(class {
-    decorations;
-    constructor(view) {
-      this.decorations = this.buildDecorations(view);
+  const buildDecorations = (state) => {
+    if (!state.field(import_obsidian.editorLivePreviewField, false)) {
+      return import_view.Decoration.none;
     }
-    update(update) {
-      if (!update.state.field(import_obsidian.editorLivePreviewField, false)) {
-        this.decorations = import_view.Decoration.none;
-        return;
-      }
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
-        this.decorations = this.buildDecorations(update.view);
+    const info = state.field(import_obsidian.editorInfoField, false);
+    if (!info?.file) {
+      return import_view.Decoration.none;
+    }
+    const model = parseDocument(state.doc.toString());
+    const builder = new import_state.RangeSetBuilder();
+    for (const entry of model.entries) {
+      if (entry.entryType === INLINE_ANCHOR) {
+        const line = state.doc.line(entry.line + 1);
+        builder.add(
+          line.to,
+          line.to,
+          import_view.Decoration.widget({
+            side: 1,
+            widget: new SummaryWidget(entry.counts, { block: false })
+          })
+        );
+      } else {
+        const line = state.doc.line(entry.beforeLine + 1);
+        builder.add(
+          line.from,
+          line.from,
+          import_view.Decoration.widget({
+            side: -1,
+            block: true,
+            widget: new SummaryWidget(entry.counts, { block: true, indent: entry.indent })
+          })
+        );
       }
     }
-    buildDecorations(view) {
-      if (!view.state.field(import_obsidian.editorLivePreviewField, false)) {
-        return import_view.Decoration.none;
-      }
-      const info = view.state.field(import_obsidian.editorInfoField, false);
-      const file = info?.file;
-      if (!file) {
-        return import_view.Decoration.none;
-      }
-      const model = parseDocument(view.state.doc.toString());
-      const builder = new import_state.RangeSetBuilder();
-      for (const entry of model.entries) {
-        if (entry.entryType === INLINE_ANCHOR) {
-          const line = view.state.doc.line(entry.line + 1);
-          if (!isPositionVisible(view, line.from)) {
-            continue;
-          }
-          builder.add(
-            line.to,
-            line.to,
-            import_view.Decoration.widget({
-              side: 1,
-              widget: new SummaryWidget(entry.counts, { block: false })
-            })
-          );
-        } else {
-          const line = view.state.doc.line(entry.beforeLine + 1);
-          if (!isPositionVisible(view, line.from)) {
-            continue;
-          }
-          builder.add(
-            line.from,
-            line.from,
-            import_view.Decoration.widget({
-              side: -1,
-              block: true,
-              widget: new SummaryWidget(entry.counts, { block: true, indent: entry.indent })
-            })
-          );
-        }
-      }
-      return builder.finish();
-    }
-  }, {
-    decorations: (instance) => instance.decorations
+    return builder.finish();
+  };
+  return import_state.StateField.define({
+    create: buildDecorations,
+    update(decorations, transaction) {
+      const livePreviewChanged = transaction.startState.field(import_obsidian.editorLivePreviewField, false) !== transaction.state.field(import_obsidian.editorLivePreviewField, false);
+      const fileChanged = transaction.startState.field(import_obsidian.editorInfoField, false)?.file !== transaction.state.field(import_obsidian.editorInfoField, false)?.file;
+      return transaction.docChanged || livePreviewChanged || fileChanged ? buildDecorations(transaction.state) : decorations;
+    },
+    provide: (field) => import_view.EditorView.decorations.from(field)
   });
-}
-function isPositionVisible(view, position) {
-  return view.visibleRanges.some((range) => position >= range.from && position <= range.to);
 }
 var ChecklistSummaryPlugin = class extends import_obsidian.Plugin {
   async onload() {

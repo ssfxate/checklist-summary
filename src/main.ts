@@ -5,14 +5,12 @@ import {
   editorLivePreviewField,
   type MarkdownPostProcessorContext
 } from "obsidian";
-import { RangeSetBuilder, type Extension } from "@codemirror/state";
+import { RangeSetBuilder, StateField, type EditorState, type Extension } from "@codemirror/state";
 import {
   Decoration,
-  ViewPlugin,
+  EditorView,
   WidgetType,
   type DecorationSet,
-  type EditorView,
-  type ViewUpdate
 } from "@codemirror/view";
 
 type Counts = Record<string, number>;
@@ -641,80 +639,61 @@ function createLivePreviewExtension(): Extension {
     }
   }
 
-  return ViewPlugin.fromClass(class {
-    decorations: DecorationSet;
-
-    constructor(view: EditorView) {
-      this.decorations = this.buildDecorations(view);
+  const buildDecorations = (state: EditorState): DecorationSet => {
+    if (!state.field(editorLivePreviewField, false)) {
+      return Decoration.none;
     }
 
-    update(update: ViewUpdate): void {
-      if (!update.state.field(editorLivePreviewField, false)) {
-        this.decorations = Decoration.none;
-        return;
-      }
+    const info = state.field(editorInfoField, false);
+    if (!info?.file) {
+      return Decoration.none;
+    }
 
-      if (update.docChanged || update.viewportChanged || update.selectionSet) {
-        this.decorations = this.buildDecorations(update.view);
+    const model = parseDocument(state.doc.toString());
+    const builder = new RangeSetBuilder<Decoration>();
+
+    for (const entry of model.entries) {
+      if (entry.entryType === INLINE_ANCHOR) {
+        const line = state.doc.line(entry.line + 1);
+        builder.add(
+          line.to,
+          line.to,
+          Decoration.widget({
+            side: 1,
+            widget: new SummaryWidget(entry.counts, { block: false })
+          })
+        );
+      } else {
+        const line = state.doc.line(entry.beforeLine + 1);
+        builder.add(
+          line.from,
+          line.from,
+          Decoration.widget({
+            side: -1,
+            block: true,
+            widget: new SummaryWidget(entry.counts, { block: true, indent: entry.indent })
+          })
+        );
       }
     }
 
-    buildDecorations(view: EditorView): DecorationSet {
-      if (!view.state.field(editorLivePreviewField, false)) {
-        return Decoration.none;
-      }
+    return builder.finish();
+  };
 
-      const info = view.state.field(editorInfoField, false);
-      const file = info?.file;
-      if (!file) {
-        return Decoration.none;
-      }
+  return StateField.define<DecorationSet>({
+    create: buildDecorations,
+    update(decorations, transaction) {
+      const livePreviewChanged = transaction.startState.field(editorLivePreviewField, false)
+        !== transaction.state.field(editorLivePreviewField, false);
+      const fileChanged = transaction.startState.field(editorInfoField, false)?.file
+        !== transaction.state.field(editorInfoField, false)?.file;
 
-      const model = parseDocument(view.state.doc.toString());
-      const builder = new RangeSetBuilder<Decoration>();
-
-      for (const entry of model.entries) {
-        if (entry.entryType === INLINE_ANCHOR) {
-          const line = view.state.doc.line(entry.line + 1);
-          if (!isPositionVisible(view, line.from)) {
-            continue;
-          }
-
-          builder.add(
-            line.to,
-            line.to,
-            Decoration.widget({
-              side: 1,
-              widget: new SummaryWidget(entry.counts, { block: false })
-            })
-          );
-        } else {
-          const line = view.state.doc.line(entry.beforeLine + 1);
-          if (!isPositionVisible(view, line.from)) {
-            continue;
-          }
-
-          builder.add(
-            line.from,
-            line.from,
-            Decoration.widget({
-              side: -1,
-              block: true,
-              widget: new SummaryWidget(entry.counts, { block: true, indent: entry.indent })
-            })
-          );
-        }
-      }
-
-      return builder.finish();
-    }
-  }, {
-    decorations: (instance) => instance.decorations
+      return transaction.docChanged || livePreviewChanged || fileChanged
+        ? buildDecorations(transaction.state)
+        : decorations;
+    },
+    provide: (field) => EditorView.decorations.from(field)
   });
-}
-
-function isPositionVisible(view: EditorView, position: number): boolean {
-  return view.visibleRanges.some((range) => position >= range.from && position <= range.to);
 }
 
 export default class ChecklistSummaryPlugin extends Plugin {

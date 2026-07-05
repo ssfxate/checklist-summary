@@ -1,7 +1,7 @@
 {
 	"id": "checklist-summary",
 	"name": "Checklist Summary",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"minAppVersion": "1.5.0",
 	"description": "Render lightweight checkbox status summaries for sections and list groups in Live Preview and Reading mode.",
 	"author": "ssfxate",
